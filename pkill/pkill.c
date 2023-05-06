@@ -42,186 +42,182 @@ extern char *__progname;
 /*
  * pkill matches processes specified by its arguments and sends a signal to them
  */
-int
-main(argc, argv)
-	int argc;
-	char *argv[];
+int main(argc, argv)
+int argc;
+char *argv[];
 {
-	int fflag, iflag, nflag, vflag, xflag, ch, numsig;
-	struct pidlist *pgroupl, *ppidl, *sidl;
-	struct proctoolslist *proctoolslist, *temppl;
-	struct uidlist *euidl, *uidl;
-	struct baton *baton;
-	struct grouplist *gidl;
-	struct termlist *terml;
-	char *newarg;
-	char *endptr;
-	size_t len;
+  int fflag, iflag, nflag, vflag, xflag, ch, numsig;
+  struct pidlist *pgroupl, *ppidl, *sidl;
+  struct proctoolslist *proctoolslist, *temppl;
+  struct uidlist *euidl, *uidl;
+  struct baton *baton;
+  struct grouplist *gidl;
+  struct termlist *terml;
+  char *newarg;
+  char *endptr;
+  size_t len;
 
-	if (argc < 2) {
-		(void)fprintf(stderr, "%s: no matching criteria specified\n", __progname);
-		usage();
-	}
+  if (argc < 2) {
+    (void)fprintf(stderr, "%s: no matching criteria specified\n", __progname);
+    usage();
+  }
 
-	proctoolslist = NULL;
-	gidl = NULL;
-	pgroupl = ppidl = sidl = NULL;
-	terml = NULL;
-	euidl = uidl = NULL;
-	fflag = iflag = xflag = nflag = vflag = FALSE;
-	numsig = SIGTERM;
-	newarg = NULL;
+  proctoolslist = NULL;
+  gidl = NULL;
+  pgroupl = ppidl = sidl = NULL;
+  terml = NULL;
+  euidl = uidl = NULL;
+  fflag = iflag = xflag = nflag = vflag = FALSE;
+  numsig = SIGTERM;
+  newarg = NULL;
 
-	if (argc > 1) { // redundant
-		argv++;
-		if (**argv == '-') {
-			++*argv;
-			if (isalpha(**argv)) {
-				if ((numsig = signameToSignum(*argv)) < 0) {
-					numsig = SIGTERM;
-					--*argv;
-				}
-				else {
-					len = strlen(*argv) + 3;
-					if ((newarg = calloc(len, sizeof(char))) == NULL)
-						err(EX_OSERR, NULL);
-					snprintf(newarg, len, "-s%s", *argv);
-					--*argv;
-					*argv = newarg;
-				}
-			}
-			else
-			if (isdigit(**argv)) {
-				numsig = strtol(*argv, &endptr, 10);
-				if (*endptr != '\0') {
-					numsig = SIGTERM;
-					--*argv;
-				}
-				else {
-					len = strlen(*argv) + 3;
-					if ((newarg = calloc(len, sizeof(char))) == NULL)
-						err(EX_OSERR, NULL);
-					snprintf(newarg, len, "-s%s", *argv);
-					--*argv;
-					*argv = newarg;
-				}
-				if (numsig < 0 || numsig >= NSIG)
-					nosig(*argv);
-			}
-		}
-		argv--;
-	}
+  if (argc > 1) { // redundant
+    argv++;
+    if (**argv == '-') {
+      ++*argv;
+      if (isalpha(**argv)) {
+        if ((numsig = signameToSignum(*argv)) < 0) {
+          numsig = SIGTERM;
+          --*argv;
+        } else {
+          len = strlen(*argv) + 3;
+          if ((newarg = calloc(len, sizeof(char))) == NULL)
+            err(EX_OSERR, NULL);
+          snprintf(newarg, len, "-s%s", *argv);
+          --*argv;
+          *argv = newarg;
+        }
+      } else if (isdigit(**argv)) {
+        numsig = strtol(*argv, &endptr, 10);
+        if (*endptr != '\0') {
+          numsig = SIGTERM;
+          --*argv;
+        } else {
+          len = strlen(*argv) + 3;
+          if ((newarg = calloc(len, sizeof(char))) == NULL)
+            err(EX_OSERR, NULL);
+          snprintf(newarg, len, "-s%s", *argv);
+          --*argv;
+          *argv = newarg;
+        }
+        if (numsig < 0 || numsig >= NSIG)
+          nosig(*argv);
+      }
+    }
+    argv--;
+  }
 
-	while ((ch = getopt(argc, argv, "fg:G:inP:s:t:u:U:vVx")) != -1)
-		switch ((char)ch) {
-		case 'f':
-			fflag = TRUE;
-			break;
-		case 'g':
-			(void)parsePidList(optarg, &pgroupl);
-			break;
-		case 'G':
-			(void)parseGroupList(optarg, &gidl);
-			break;
-		case 'i':
-			iflag = TRUE;
-			break;
-		case 'n':
-			nflag = TRUE;
-			break;
-		case 'P':
-			(void)parsePidList(optarg, &ppidl);
-			break;
-		case 's':
-			if (*optarg == '-')
-				optarg++;
-			if (isalpha(*optarg)) {
-				if ((numsig = signameToSignum(optarg)) < 0)
-					nosig(optarg);
-			}
-			else
-			if (isdigit(*optarg)) {
-				numsig = strtol(optarg, &endptr, 10);
-				if (*endptr != '\0')
-					nosig(optarg);
-				if (numsig < 0 || numsig >= NSIG)
-					nosig(optarg);
-			}
-			else
-				nosig(optarg);
-			break;
-		case 't':
-			(void)parseTermList(optarg, &terml);
-			break;
-		case 'u':
-			(void)parseUidList(optarg, &euidl);
-			break;
-		case 'U':
-			(void)parseUidList(optarg, &uidl);
-			break;
-		case 'v':
-			vflag = TRUE;
-			break;
-		case 'V':
-			(void)fprintf(stderr, "%s (proctools " VERSION ") http://proctools.sourceforge.net\n", __progname);
-			exit(EX_OK);
-			/* NOTREACHED */
-		case 'x':
-			xflag = TRUE;
-			break;
-		case '?':
-		default:
-			usage();
-			/* NOTREACHED */
-		}
+  while ((ch = getopt(argc, argv, "fg:G:inP:s:t:u:U:vVx")) != -1)
+    switch ((char)ch) {
+    case 'f':
+      fflag = TRUE;
+      break;
+    case 'g':
+      (void)parsePidList(optarg, &pgroupl);
+      break;
+    case 'G':
+      (void)parseGroupList(optarg, &gidl);
+      break;
+    case 'i':
+      iflag = TRUE;
+      break;
+    case 'n':
+      nflag = TRUE;
+      break;
+    case 'P':
+      (void)parsePidList(optarg, &ppidl);
+      break;
+    case 's':
+      if (*optarg == '-')
+        optarg++;
+      if (isalpha(*optarg)) {
+        if ((numsig = signameToSignum(optarg)) < 0)
+          nosig(optarg);
+      } else if (isdigit(*optarg)) {
+        numsig = strtol(optarg, &endptr, 10);
+        if (*endptr != '\0')
+          nosig(optarg);
+        if (numsig < 0 || numsig >= NSIG)
+          nosig(optarg);
+      } else
+        nosig(optarg);
+      break;
+    case 't':
+      (void)parseTermList(optarg, &terml);
+      break;
+    case 'u':
+      (void)parseUidList(optarg, &euidl);
+      break;
+    case 'U':
+      (void)parseUidList(optarg, &uidl);
+      break;
+    case 'v':
+      vflag = TRUE;
+      break;
+    case 'V':
+      (void)fprintf(stderr,
+                    "%s (proctools " VERSION
+                    ") http://proctools.sourceforge.net\n",
+                    __progname);
+      exit(EX_OK);
+      /* NOTREACHED */
+    case 'x':
+      xflag = TRUE;
+      break;
+    case '?':
+    default:
+      usage();
+      /* NOTREACHED */
+    }
 
-	argc -= optind;
-	argv += optind;
+  argc -= optind;
+  argv += optind;
 
-	if (newarg != NULL)
-		free(newarg);
+  if (newarg != NULL)
+    free(newarg);
 
-	if (argc > 1) {
-		warn("too many arguments");
-		usage();
-	}
+  if (argc > 1) {
+    warn("too many arguments");
+    usage();
+  }
 
-	baton = getProcList (NULL, &proctoolslist, euidl, uidl, gidl, ppidl, pgroupl, terml, fflag, iflag, nflag, vflag, xflag, ((argc > 0)?argv[0]:NULL));
+  baton = getProcList(NULL, &proctoolslist, euidl, uidl, gidl, ppidl, pgroupl,
+                      terml, fflag, iflag, nflag, vflag, xflag,
+                      ((argc > 0) ? argv[0] : NULL));
 
-	temppl = proctoolslist;
-	while (temppl != NULL) {
-		if (kill(temppl->pid, numsig) < 0)
-			warn("pid %d", temppl->pid);
-		temppl = temppl->next;
-	}
+  temppl = proctoolslist;
+  while (temppl != NULL) {
+    if (kill(temppl->pid, numsig) < 0)
+      warn("pid %d", temppl->pid);
+    temppl = temppl->next;
+  }
 
-	freeProcList(baton);
+  freeProcList(baton);
 
-	return proctoolslist == NULL ? 1 : EX_OK;
+  return proctoolslist == NULL ? 1 : EX_OK;
 }
 
 /*
  * expanded warning for bogus signal names
  */
-__dead static void
-nosig(name)
-	char *name;
+__dead static void nosig(name) char *name;
 {
-	warnx("unknown signal %s; valid signals:", name);
-	printSignals(stderr);
-	exit(EX_USAGE);
+  warnx("unknown signal %s; valid signals:", name);
+  printSignals(stderr);
+  exit(EX_USAGE);
 }
 
 /*
  * prints out the usage of the program and exits
  */
-__dead static void
-usage()
-{
-	(void)fprintf(stderr, "Usage: %s [-<signal>] [-finvVx] [-g <pgrplist>] [-G <gidlist>] [-P <ppidlist>] [-s <signal>] [-t <termlist>] [-u <euidlist>] [-U <uidlist>] [<pattern>]\n", __progname);
-	exit(EX_USAGE);
+__dead static void usage() {
+  (void)fprintf(stderr,
+                "Usage: %s [-<signal>] [-finvVx] [-g <pgrplist>] [-G "
+                "<gidlist>] [-P <ppidlist>] [-s <signal>] [-t <termlist>] [-u "
+                "<euidlist>] [-U <uidlist>] [<pattern>]\n",
+                __progname);
+  exit(EX_USAGE);
 }
-
 
 /*
  * Copyright (c) 2001 William B Faulk.  All rights reserved.
